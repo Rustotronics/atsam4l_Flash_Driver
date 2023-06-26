@@ -1,0 +1,18 @@
+[package]
+authors = ["Lavanya"]
+edition = "2018"
+readme = "README.md"
+name = "atsamblinky"
+version = "0.1.0"
+
+[dependencies]
+cortex-m = "0.7.7"
+cortex-m-rt = "0.7.3"
+panic-halt = "0.2.0"
+atsam4lc8c-pac = {version = "0.3.1", features = ["critical-section"]}
+# atsam4lc8c = "0.1.1"
+
+[profile.release]
+codegen-units = 1 # better optimizations
+debug = true # symbols are nice and they don't increase the size on Flash
+lto = true # better optimizations
