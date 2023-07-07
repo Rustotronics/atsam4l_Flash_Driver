@@ -1,9 +1,9 @@
 use atsam4lc8c_pac as pac;
-use pac::Peripherals;
+use pac::{smap::addr, Peripherals};
 use panic_halt as _;
 
-use core::{ptr::write_volatile, convert::TryInto};
 use atsam4lc8c_constants::*;
+use core::{convert::TryInto, ptr::write_volatile};
 use pac::HFLASHC;
 
 #[rustfmt::skip]
@@ -28,55 +28,8 @@ pub mod atsam4lc8c_constants {
 
 // TO ERASE the FLASH
 
-// use Flash Command Register (FCMD). 32 bit
-// 0 to 5 bits: CMD field. Value: 2. Operation: Erase Page (EP)
-// Bits 6 and 7: don't write anything. Not used bits.
-// 8 to 15: PAGEN field: it is used to address a page or fuse bit for certain operations.  PAGEN field 
-    // is automatically updated every time the page buffer is written to
-// 16 to 23: PAGEN field: same as above.
-// Total page no. :1024 (0 to 1023). In Hex = 0x400. In Binary, 1024 = 0100 0000 0000.
-// which means, to write 1023 (Bin= 11 0000 0000) in binary we need only 10 bits.
-// 24 to 31: KEY: write protection key. Value to be written: 0xA5 for the CMD to be enabled. If
-    // any different value is written, then write operation is not performed and no action will be taken.
-
-
-
-
-/* Flash must be erased to program it. Use Erase all or Erase Page command */
-
-// Erase the page to be programmed
-
-/* To write data use "Page buffer"
-  Can lock region after coding. Locking 1 region will lock all the pages under that region
- Writing of 8-bit and 16-bit data to the page buffer is not allowed and may lead to unpredictable data corruption
-*/ 
-
-// Reset the page buffer with the Clear Page Buffer command
-
-// Fill the page buffer with the desired content
-
-/* Programming starts as soon as the programming key and the programming command are
-written to the Flash Command Register. The PAGEN field in the Flash Command Register
-(FCMD) must contain the address of the page to write. PAGEN is automatically updated
-when writing to the page buffer, but can also be written to directly. The FRDY bit in the Flash
-Status Register (FSR) is automatically cleared when the page write operation starts. */
-
-// Address of the page to be written should be in "PAGEN" field in the Flash Command Register (FCMD) 
-
-/* PAGEN is automatically updated when writing to the page buffer, but can also be written to directly. 
- The FRDY bit in the Flash
-Status Register (FSR) is automatically cleared when the page write operation starts. */
-
-// TO WRITE:
-// The flash memory has a write and erase granularity of one page; data is written and erased in chunks of one page. 
-// To program a page. First write to page buffer
-// To copy contents from Page buffer to desired page in flash, use "Write page" command
-// Internally, the flash memory stores data in 64-bit doublewords
-// 
- /* The page buffer is not automatically reset after a page write. The user should do this manually
-by issuing the Clear Page Buffer flash command. This can be done after a page write, or before
-the page buffer is loaded with data to be stored to the flash page */
-
+// use Flash Command Register (FCMD).
+// FCMD has 3 fields: KEY, PAGEN, CMD. Refer Datasheet Chapter 14 to know more
 
 pub struct FlashWriterEraser {
     pub nvm: HFLASHC,
@@ -100,12 +53,121 @@ impl FlashWriterEraser {
     ///
     /// Returns:
     /// -  NONE
-    // fn hal_flash_write(&self, address: usize, data: *const u8, len: usize) {
-    //     let address = address as u32;
-    //     let len = len as u32;
-    //     let mut idx = 0u32;
-    //     let mut src = data as *mut u32;
-    //     let mut dst = address as *mut u32;
+
+    pub fn hal_flash_write(&self, address: usize, data: *const u8, len: usize) {
+        let address = address as u32;
+        let len = len as u32;
+
+        let starting_page = (address / 512) as u32;
+        let ending_page = ((address + len) / 512) as u32;
+        let mut idx = 0u32;
+        let mut src = data as *mut u32;
+        let mut dst = address as *mut u32;
+        let mut pg_num = address/512;
+
+        defmt::println!("Starting page calculated");
+
+        // If len < 1 page, then this block is used to earse the page
+        if starting_page == ending_page{
+            self.nvm.fcmd.write(|s| unsafe {
+                s.key().bits(0xA5)
+                 .pagen().bits(pg_num.try_into().unwrap())
+                 .cmd().bits(0x02)
+            });
+            defmt::println!("am I erasing the page?");
+        }
+        loop {
+            let fsr_status = self.nvm.fsr.read().frdy().bit();
+            if fsr_status == true {
+                // defmt::println!("Erase successful");
+                break;
+            }
+        } 
+        for addr in starting_page..ending_page {
+            defmt::println!("addr value in for loop: {}", addr);
+            // Perform erase operation on pages to be written
+            self.nvm.fcmd.write(|s| unsafe {
+                s.key().bits(0xA5)
+                 .pagen().bits(addr.try_into().unwrap())
+                 .cmd().bits(0x02)
+            });
+            // defmt::println!("What's the addr value here {}", addr);
+            loop {
+                let fsr_status = self.nvm.fsr.read().frdy().bit();
+                if fsr_status == true {
+                    // defmt::println!("Erase successful");
+                    break;
+                }
+            }          
+        }  
+
+        // Before writing to FCMD, first write to "Page Buffer"
+        // Use "write page" command
+        while idx < len {
+            // let data_ptr = 
+
+            // Check if the following holds true and do a full word write i.e. 4-byte write
+            // - if `len - idx` is greater than 3 (i.e. 4 bytes).
+            // - if the address is aligned on a word (i.e. 4-byte) boundary.
+            // - if the data_ptr is aligned on a word (i.e. 4-byte) boundary.
+            // if (len - idx > 3)
+            //     && ((((address + idx) & 0x03) == 0) && ((data_ptr + idx) & 0x03) == 0)
+            // {
+                // To begin write operation, Clear page buffer register
+                self.nvm.fcmd.write(|s| unsafe {
+                    s.key().bits(0xA5)
+                // pagen field is not used
+                        .cmd().bits(0x03)
+                });
+
+                loop {
+                    let fsr_status = self.nvm.fsr.read().frdy().bit();
+                    if fsr_status == true {
+                        // defmt::println!("Erase successful");
+                        break;
+                    }
+                } 
+
+                // Write to Page Buffer by directly writing to flash memory
+                unsafe {
+                    *dst = *src; // 4-byte write (For lower part of doubleword)
+                };
+
+                src = ((src as u32) + 4) as *mut u32; // increment pointer by 4
+                dst = ((dst as u32) + 4) as *mut u32; // increment pointer by 4
+                unsafe {
+                    *dst = *src; // 4-byte write (For higher part of doubleword)
+                };
+
+                src = ((src as u32) + 4) as *mut u32; // increment pointer by 4
+                dst = ((dst as u32) + 4) as *mut u32; // increment pointer by 4
+                
+                // Flash write command
+                self.nvm.fcmd.write(|s| unsafe {
+                    s.key().bits(0xA5)
+                    .pagen().bits(pg_num.try_into().unwrap())
+                    .cmd().bits(0x01)
+                });
+                // defmt::println!("Addr value: {}", addr);
+
+                loop {
+                    let fsr_status = self.nvm.fsr.read().frdy().bit();
+                    if fsr_status == true {
+                        // defmt::println!("Erase successful");
+                        break;
+                    }
+                }
+                // increment index value
+                idx += 8;
+
+                if (idx%512)==0 {
+                    pg_num+=1;
+                }
+            // } else {
+                // else do a single byte write i.e. 1-byte write with padding for rest of the bytes
+            // }
+        }
+}
     //     //Unlock the FLASH
     //     self.hal_flash_unlock();
     //     while idx < len {
@@ -180,34 +242,35 @@ impl FlashWriterEraser {
     /// -  NONE
 
     pub fn hal_flash_erase(&self, addr: usize, len: usize) {
-        // 1 page size = 512. address / 512 (Integer part of the result) = page number. 
+        // 1 page size = 512. address / 512 (Integer part of the result) = page number.
         // Feed the page number to FCMD register in PAGEN field.
+
         let starting_page = (addr / 512) as u32;
-        let ending_page = ((addr + len)/512) as u32;
+        let ending_page = ((addr + len) / 512) as u32;
 
-
-            // CMD, PAGEN and KEY are the fields of FCMD register
         for addr in starting_page..ending_page {
-        //    println!("Page number is:{}", addr);
-            self.nvm.fcmd.write(|s|
-                unsafe { s.cmd().bits(0x02) });
-            self.nvm.fcmd.write(|s|
-                unsafe { s.pagen().bits(addr.try_into().unwrap()) });
-            self.nvm.fcmd.write(|s|
-                unsafe { s.key().bits(0xA5) });
+            // defmt::println!("addr value in for loop: {}", addr);
+            self.nvm.fcmd.write(|s| unsafe {
+                s.key().bits(0xA5)
+                 .pagen().bits(addr.try_into().unwrap())
+                 .cmd().bits(0x02)
+            });
 
+            // defmt::println!("Erasing pages successful");
+            // defmt::println!("Bits value is: {}", self.nvm.fsr.read().bits());
+            // defmt::println!("Locke value is: {}", self.nvm.fsr.read().locke().bit());
 
-            loop{
+            loop {
                 let fsr_status = self.nvm.fsr.read().frdy().bit();
                 if fsr_status == true {
-                   // println!("Erasing successful");
+                    // defmt::println!("Erase successful");
                     break;
                 }
             }
-        } 
+        }
     }
-
 }
+
 //     /// This method is used to lock the flash
 //     ///
 //     /// Once the flash is locked no operation on flash can be perfomed.
@@ -239,7 +302,7 @@ impl FlashWriterEraser {
 //     /// This method is used to check the address bound of stack pointer
 //     ///
 //     /// Method arguments:
-//     /// -   i : starting address of stack  
+//     /// -   i : starting address of stack
 //     /// Returns:
 //     /// -  It returns u32 address of stack pointer
 //     pub fn bounded_int(i: u32) -> Self {
@@ -249,7 +312,7 @@ impl FlashWriterEraser {
 //     /// This method is used to check the address of reset pointer
 //     ///
 //     /// Method arguments:
-//     /// -   i : starting address of reset  
+//     /// -   i : starting address of reset
 //     /// Returns:
 //     /// -  It returns u32 address of reset pointer
 //     pub fn single_valued_int(i: u32) -> Self {
@@ -277,7 +340,7 @@ impl FlashWriterEraser {
 //        (*scb).vtor.write(address);
 //        cortex_m::register::msp::write(sp);
 //        jump_vector();
-    
+
 //        }
 //        loop{}
 // }

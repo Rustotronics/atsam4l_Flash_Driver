@@ -10,21 +10,13 @@
 # runner = "gdb -q -x openocd.gdb"
 
 rustflags = [
-  # Previously, the linker arguments --nmagic and -Tlink.x were set here.
-  # They are now set by build.rs instead. The linker argument can still
-  # only be set here, if a custom linker is needed.
-
-  # By default, the LLD linker is used, which is shipped with the Rust
-  # toolchain. If you run into problems with LLD, you can switch to the
-  # GNU linker by uncommenting this line:
-  # "-C", "linker=arm-none-eabi-ld",
-
-  # If you need to link to pre-compiled C libraries provided by a C toolchain
-  # use GCC as the linker by uncommenting the three lines below:
-  # "-C", "linker=arm-none-eabi-gcc",
-  # "-C", "link-arg=-Wl,-Tlink.x",
-  # "-C", "link-arg=-nostartfiles",
-]
+  "-C", "linker=flip-link",
+  "-C", "link-arg=-Tlink.x",
+  "-C", "link-arg=-Tdefmt.x",
+  # This is needed if your flash or ram addresses are not aligned to 0x10000 in memory.x
+  # See https://github.com/rust-embedded/cortex-m-quickstart/pull/95
+  "-C", "link-arg=--nmagic",
+] 
 
 [build]
 # Pick ONE of these default compilation targets
@@ -35,3 +27,4 @@ target = "thumbv7em-none-eabi"       # Cortex-M4 and Cortex-M7 (no FPU)
 # target = "thumbv8m.base-none-eabi"   # Cortex-M23
 # target = "thumbv8m.main-none-eabi"   # Cortex-M33 (no FPU)
 # target = "thumbv8m.main-none-eabihf" # Cortex-M33 (with FPU)
+
