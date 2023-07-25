@@ -18,8 +18,8 @@ use pac::HFLASHC;
 #[cortex_m_rt::entry]
 fn main()->! {
    let addr = 0x00048300;
-   let len = 515;
-   let data: [u8; 515] = [0xA5; 515];
+   let len = 39;
+   let data: [u8; 513] = [0xA4; 513];
    // let mut data_length = data.len();
    let raw_ptr = data.as_ptr();
    let mut updater = FlashWriterEraser::new();

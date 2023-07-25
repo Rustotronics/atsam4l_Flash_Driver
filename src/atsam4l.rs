@@ -1,12 +1,15 @@
 use atsam4lc8c_pac as pac;
-use pac::{smap::{addr, data, length}, Peripherals};
-use panic_halt as _;
 use core::convert::TryInto;
+use pac::{
+    smap::{addr, data, length},
+    Peripherals,
+};
+use panic_halt as _;
 
 use atsam4lc8c_constants::*;
 // use core::{convert::TryInto, ptr::write_volatile, str::pattern::CharSearcher};
-use pac::HFLASHC;
 use core::ptr;
+use pac::HFLASHC;
 
 #[rustfmt::skip]
 // ATSAM4LC8CA has page size = 512 Bytes
@@ -44,53 +47,62 @@ impl FlashWriterEraser {
         }
     }
 }
-
-fn copy_data_from_raw_pointer(raw_ptr: *mut u8, len: usize) -> [u8; 8] {
+fn copy_data_from_raw_pointer(raw_ptr: *const u8, len: usize) -> [u8; 8] {
     let mut arr: [u8; 8] = [0xFF; 8];
-    let write_bytes = (len/8);
-    let mut remaining_bytes: usize = (len%8) as usize;
-
-    
-    // for (len - (remaining_bytes-1))
-    
-    // arr[0] = 0xa5
-    // arr[1]
-    // ... arr[8]
-    /* 
-    Have an array filled with 0xff
-    needs to be filled with correct data
-    data length is given by length
-    correct data is at *src
-    this action has to happen at the funciton
-     */
 
     unsafe {
-        let mut i=0usize;
-
-        for length in arr{
-            arr[i] = *raw_ptr;
+        // Copy the data from the raw pointer to the array
+        for i in 0..len {
+            arr[i] = *raw_ptr.add(i);
         }
-        // arr[0] = *raw_ptr;
-        // *raw_ptr +=1;
-        // arr[1] = *raw_ptr;
-        // *raw_ptr +=1;
-        // arr[2] =*raw_ptr;
-        // *raw_ptr +=1;
-        // arr[3] =*raw_ptr;
-        // *raw_ptr +=1;
-        // arr[4] =*raw_ptr;
-        // *raw_ptr +=1;
-        // arr[5] =*raw_ptr;
-        // *raw_ptr +=1;
-        // arr[6] =*raw_ptr;
-        // *raw_ptr +=1;
-        // arr[7] =*raw_ptr;
-
-        ptr::copy_nonoverlapping(raw_ptr, arr.as_mut_ptr(), length);
     }
-    
+
     arr
 }
+// fn copy_data_from_raw_pointer(raw_ptr: *mut u8, len: usize) -> [u8; 8] {
+//     let mut arr: [u8; 8] = [0xFF; 8];
+//     let write_bytes = (len/8);
+//     let mut remaining_bytes: usize = (len%8) as usize;
+
+//     // for (len - (remaining_bytes-1))
+
+//     // arr[0] = 0xa5
+//     // arr[1]
+//     // ... arr[8]
+//     /*
+//     Have an array filled with 0xff
+//     needs to be filled with correct data
+//     data length is given by length
+//     correct data is at *src
+//     this action has to happen at the funciton
+//      */
+//     unsafe {
+//         let mut i=0usize;
+
+//         for length in arr{
+//             arr[i] = *raw_ptr;
+//         }
+//         // arr[0] = *raw_ptr;
+//         // *raw_ptr +=1;
+//         // arr[1] = *raw_ptr;
+//         // *raw_ptr +=1;
+//         // arr[2] =*raw_ptr;
+//         // *raw_ptr +=1;
+//         // arr[3] =*raw_ptr;
+//         // *raw_ptr +=1;
+//         // arr[4] =*raw_ptr;
+//         // *raw_ptr +=1;
+//         // arr[5] =*raw_ptr;
+//         // *raw_ptr +=1;
+//         // arr[6] =*raw_ptr;
+//         // *raw_ptr +=1;
+//         // arr[7] =*raw_ptr;
+
+//         ptr::copy_nonoverlapping(raw_ptr, arr.as_mut_ptr(), len);
+//     }
+
+//     arr
+// }
 
 impl FlashWriterEraser {
     /// This method is to write data on flash
@@ -103,60 +115,56 @@ impl FlashWriterEraser {
     /// Returns:
     /// -  NONE
 
+    // pub fn write_nvm_word(&mut self, address: u32, word: &[u8], len: usize) {
+    //     // defmt::println!("What's the problem?");
+    //         // assert_eq!(word.len(), 8);
+    //         assert_eq!(address % 8, 0);
+    //         // defmt::println!("are assert statements working?");
+    //         // let mut src = data as *mut u32;
+    //         let dst = address as *mut u32;
+    //         let starting_page = (address / 512) as u32;
+    //         let ending_page = ((address + len as u32) / 512) as u32;
+    //         let pg_num = address / 512;
 
-// pub fn write_nvm_word(&mut self, address: u32, word: &[u8], len: usize) {
-//     // defmt::println!("What's the problem?");
-//         // assert_eq!(word.len(), 8);
-//         assert_eq!(address % 8, 0);
-//         // defmt::println!("are assert statements working?");
-//         // let mut src = data as *mut u32;
-//         let dst = address as *mut u32;
-//         let starting_page = (address / 512) as u32;
-//         let ending_page = ((address + len as u32) / 512) as u32;
-//         let pg_num = address / 512; 
+    //         // defmt::println!("starting and ending page: {}, {}", starting_page, ending_page);
 
-//         // defmt::println!("starting and ending page: {}, {}", starting_page, ending_page);  
+    //         // If len < 1 page, then this block is used to earse the page
+    //         if starting_page == ending_page{
+    //             self.nvm.fcmd.write(|s| unsafe {
+    //                 s.key().bits(0xA5)
+    //                  .pagen().bits(pg_num.try_into().unwrap())
+    //                  .cmd().bits(0x02)
+    //             });
+    //             // defmt::println!("did we execute this?");
+    //         }
+    //         // while !self.nvm.fsr.read().frdy().bit() {}
 
-//         // If len < 1 page, then this block is used to earse the page
-//         if starting_page == ending_page{
-//             self.nvm.fcmd.write(|s| unsafe {
-//                 s.key().bits(0xA5)
-//                  .pagen().bits(pg_num.try_into().unwrap())
-//                  .cmd().bits(0x02)
-//             });
-//             // defmt::println!("did we execute this?");
-//         }
-//         // while !self.nvm.fsr.read().frdy().bit() {}
+    //         for addr in starting_page..ending_page {
+    //             // defmt::println!("addr value in for loop: {}", addr);
+    //             // Perform erase operation on pages to be written
+    //             self.nvm.fcmd.write(|s| unsafe {
+    //                 s.key().bits(0xA5)
+    //                  .pagen().bits(addr.try_into().unwrap())
+    //                  .cmd().bits(0x02)
+    //             });
+    //             // while !self.nvm.fsr.read().frdy().bit() {}
+    //             // defmt::println!("or are we in the loop?");
+    //         }
 
-//         for addr in starting_page..ending_page {
-//             // defmt::println!("addr value in for loop: {}", addr);
-//             // Perform erase operation on pages to be written
-//             self.nvm.fcmd.write(|s| unsafe {
-//                 s.key().bits(0xA5)
-//                  .pagen().bits(addr.try_into().unwrap())
-//                  .cmd().bits(0x02)
-//             });      
-//             // while !self.nvm.fsr.read().frdy().bit() {} 
-//             // defmt::println!("or are we in the loop?");
-//         }
-           
-        
-//         // To begin write operation, Clear page buffer register
-//         self.nvm.fcmd.write(|s| unsafe {
-//             s.key().bits(0xA5)
-//                 .cmd().bits(0x03)
-//         });
-//         defmt::println!("are we clearing page buffer?");
-//         while !self.nvm.fsr.read().frdy().bit() {}
+    //         // To begin write operation, Clear page buffer register
+    //         self.nvm.fcmd.write(|s| unsafe {
+    //             s.key().bits(0xA5)
+    //                 .cmd().bits(0x03)
+    //         });
+    //         defmt::println!("are we clearing page buffer?");
+    //         while !self.nvm.fsr.read().frdy().bit() {}
 
-        
     //     // Write to the page buffer
     //     unsafe {
     //         dst.offset(0).write_volatile(word[0..4].as_ptr() as u32);
     //         dst.offset(1).write_volatile(word[4..8].as_ptr() as u32);
     //         defmt::println!("did we do single page write?");
     //     }
-    
 
     //     // Flash write command
     //     self.nvm.fcmd.write(|s| unsafe {
@@ -168,150 +176,228 @@ impl FlashWriterEraser {
     //     while !self.nvm.fsr.read().frdy().bit() {}
     //     defmt::println!("FRDY bit checking here");
     //  }
-    
-// pub fn write_nvm_words(&mut self, address: u32, data: &[u8], len: usize) {
-//     for (i, word) in data.chunks(8).enumerate() {
-//         if word.len() == 8 {
-//             self.write_nvm_word(address as u32 + (i * 8) as u32, word, len);
-//         } else {
-//             let mut buffer = [0xFF; 8];
-//             buffer[..word.len()].copy_from_slice(word);
-//             self.write_nvm_word(address + (i * 8) as u32, &buffer, len);
-//         }
-//         while !self.nvm.fsr.read().frdy().bit() {}
-//    }
-    
 
+    // pub fn write_nvm_words(&mut self, address: u32, data: &[u8], len: usize) {
+    //     for (i, word) in data.chunks(8).enumerate() {
+    //         if word.len() == 8 {
+    //             self.write_nvm_word(address as u32 + (i * 8) as u32, word, len);
+    //         } else {
+    //             let mut buffer = [0xFF; 8];
+    //             buffer[..word.len()].copy_from_slice(word);
+    //             self.write_nvm_word(address + (i * 8) as u32, &buffer, len);
+    //         }
+    //         while !self.nvm.fsr.read().frdy().bit() {}
+    //    }
 
-                            /******Our code  ********/
+    /******Our code  ********/
 
-    pub fn hal_flash_write(&self, address: usize, data: *const u8, len: usize) {
-        let address = address as u32;
-        let len = len as u32;
-        let starting_page = (address / 512) as u32;
-        let ending_page = ((address + len) / 512) as u32;
-        let mut idx = 0u32;
-        let mut src = data as *mut u32;
-        let mut dst = address as *mut u32;
-        let mut pg_num = address/512;
+    //     pub fn hal_flash_write(&self, address: usize, data: *const u8, len: usize) {
+    //         let address = address as u32;
+    //         let len = len as u32;
+    //         let starting_page = (address / 512) as u32;
+    //         let ending_page = ((address + len) / 512) as u32;
+    //         let mut idx = 0u32;
+    //         let mut src = data as *mut u32;
+    //         let mut dst = address as *mut u32;
+    //         let mut pg_num = address/512;
 
-        // If len < 1 page, then this block is used to earse the page
-        if starting_page == ending_page{
-            self.nvm.fcmd.write(|s| unsafe {
-                s.key().bits(0xA5)
-                 .pagen().bits(pg_num.try_into().unwrap())
-                 .cmd().bits(0x02)
-            });
-            defmt::println!("am I erasing the page?");
-        }
-        while !self.nvm.fsr.read().frdy().bit() {} 
+    //         // If len < 1 page, then this block is used to earse the page
+    //         if starting_page == ending_page{
+    //             self.nvm.fcmd.write(|s| unsafe {
+    //                 s.key().bits(0xA5)
+    //                  .pagen().bits(pg_num.try_into().unwrap())
+    //                  .cmd().bits(0x02)
+    //             });
+    //             defmt::println!("am I erasing the page?");
+    //         }
+    //         while !self.nvm.fsr.read().frdy().bit() {}
 
-        // Perform erase operation on pages to be written
-        for addr in starting_page..ending_page {
-            defmt::println!("addr value in for loop: {}", addr);
-            self.nvm.fcmd.write(|s| unsafe {
-                s.key().bits(0xA5)
-                 .pagen().bits(addr.try_into().unwrap())
-                 .cmd().bits(0x02)
-            });
-            while !self.nvm.fsr.read().frdy().bit() {}          
-        }  
+    //         // Perform erase operation on pages to be written
+    //         for addr in starting_page..ending_page {
+    //             defmt::println!("addr value in for loop: {}", addr);
+    //             self.nvm.fcmd.write(|s| unsafe {
+    //                 s.key().bits(0xA5)
+    //                  .pagen().bits(addr.try_into().unwrap())
+    //                  .cmd().bits(0x02)
+    //             });
+    //             while !self.nvm.fsr.read().frdy().bit() {}
+    //         }
 
-        // Before writing to FCMD, first write to "Page Buffer"
-        while idx < len {
-            let data_ptr = (data as *const u32) as u32;
+    //         // Before writing to FCMD, first write to "Page Buffer"
+    //         while idx < len {
+    //             let data_ptr = (data as *const u32) as u32;
 
-            // Check if the following holds true and do a full word write i.e. 4-byte write
-            // - if `len - idx` is greater than 3 (i.e. 4 bytes).
-            // - if the address is aligned on a word (i.e. 4-byte) boundary.
-            // - if the data_ptr is aligned on a word (i.e. 4-byte) boundary.
-            if (len - idx > 3)
-                && ((((address + idx) & 0x03) == 0) && ((data_ptr + idx) & 0x03) == 0)
-            {
-                // To begin write operation, Clear page buffer register
-                self.nvm.fcmd.write(|s| unsafe {
-                    s.key().bits(0xA5)
-                // pagen field is not used
-                        .cmd().bits(0x03)
-                });
-                while !self.nvm.fsr.read().frdy().bit() {}
+    //             // Check if the following holds true and do a full word write i.e. 4-byte write
+    //             // - if `len - idx` is greater than 3 (i.e. 4 bytes).
+    //             // - if the address is aligned on a word (i.e. 4-byte) boundary.
+    //             // - if the data_ptr is aligned on a word (i.e. 4-byte) boundary.
+    //             if (len - idx > 3)
+    //                 && ((((address + idx) & 0x03) == 0) && ((data_ptr + idx) & 0x03) == 0)
+    //             {
+    //                 // To begin write operation, Clear page buffer register
+    //                 self.nvm.fcmd.write(|s| unsafe {
+    //                     s.key().bits(0xA5)
+    //                 // pagen field is not used
+    //                         .cmd().bits(0x03)
+    //                 });
+    //                 while !self.nvm.fsr.read().frdy().bit() {}
 
-                // Write to Page Buffer by directly writing to flash memory
+    //                 // Write to Page Buffer by directly writing to flash memory
+    //                 unsafe {
+    //                     *dst = *src; // 4-byte write (For lower part of doubleword)
+    //                 };
+
+    //                 src = ((src as u32) + 4) as *mut u32; // increment pointer by 4
+    //                 dst = ((dst as u32) + 4) as *mut u32; // increment pointer by 4
+
+    //                 unsafe {
+    //                     *dst = *src; // 4-byte write (For higher part of doubleword)
+    //                 };
+
+    //                 src = ((src as u32) + 4) as *mut u32; // increment pointer by 4
+    //                 dst = ((dst as u32) + 4) as *mut u32; // increment pointer by 4
+
+    //                 // Flash write command
+    //                 self.nvm.fcmd.write(|s| unsafe {
+    //                     s.key().bits(0xA5)
+    //                     .pagen().bits(pg_num.try_into().unwrap())
+    //                     .cmd().bits(0x01)
+    //                 });
+    //                 while !self.nvm.fsr.read().frdy().bit() {}
+
+    //                 // increment index value
+    //                 idx += 8;
+
+    //                 if (idx%512)==0 {
+    //                     pg_num+=1;
+    //                 }
+    //             } else {
+    //                 defmt::println!("I'm executing the else block");
+
+    //                 // let mut temp_doubleword: [u8; 8] = [0xFF; 8];
+
+    //                 let copied_data = copy_data_from_raw_pointer(src as *mut u8, len as usize);
+    //                 let offset = (address + idx) - (((address + idx) >> 3) << 3); // reminder of 8-byte alignment operation on sum of address and idx
+    //                 let data_ptr = copied_data.as_ptr();
+    //                 defmt::println!("copied data has {}", copied_data);
+
+    //                 // clearing page buffer
+    //                 self.nvm.fcmd.write(|s| unsafe {
+    //                     s.key().bits(0xA5)
+    //                 // pagen field is not used
+    //                         .cmd().bits(0x03)
+    //                 });
+
+    //                 while !self.nvm.fsr.read().frdy().bit() {}
+
+    //                 // Write to Page Buffer by directly writing to flash memory
+    //                 unsafe {
+    //                     *dst = *data_ptr as u32; // 4-byte write (For lower part of doubleword)
+    //                 };
+
+    //                 // data_ptr = ((data_ptr as *const u8) + 4) as *mut u32; // increment pointer by 4
+    //                 dst = ((dst as u32) + 4) as *mut u32; // increment pointer by 4
+    //                 let data_ptr = copied_data[4..8].as_ptr();
+
+    //                 unsafe {
+    //                     *dst = *data_ptr  as u32; // 4-byte write (For higher part of doubleword)
+    //                 };
+
+    //                 // Flash write command
+    //                 self.nvm.fcmd.write(|s| unsafe {
+    //                     s.key().bits(0xA5)
+    //                     .pagen().bits(pg_num.try_into().unwrap())
+    //                     .cmd().bits(0x01)
+    //                 });
+
+    //                 while !self.nvm.fsr.read().frdy().bit() {}
+    //                 idx += 1;
+
+    //             }
+
+    //     }
+    //  }
+
+pub fn hal_flash_write(&self, address: usize, data: *const u8, len: usize) {
+    let address = address as u32;
+    let len = len as u32;
+    let starting_page = (address / 512) as u32;
+    let ending_page = ((address + len) / 512) as u32;
+    let mut idx = 0u32;
+    let mut src = data;
+    let mut dst = address as *mut u8;
+
+    // Perform erase operation on pages to be written
+    for addr in starting_page..=ending_page {
+        self.nvm.fcmd.write(|s| unsafe {
+            s.key()
+                .bits(0xA5)
+                .pagen()
+                .bits(addr.try_into().unwrap())
+                .cmd()
+                .bits(0x02)
+        });
+        while !self.nvm.fsr.read().frdy().bit() {}
+    }
+
+    // Before writing to FCMD, first write to "Page Buffer"
+    let mut pg_num = starting_page;
+    while idx < len {
+        let bytes_to_write = core::cmp::min(8 - (address & 0x07), len - idx);
+
+        // Clear the page buffer
+        self.nvm.fcmd.write(|s| unsafe {
+            s.key()
+                .bits(0xA5)
+                .cmd()
+                .bits(0x03)
+        });
+        while !self.nvm.fsr.read().frdy().bit() {}
+
+        // Fill the page buffer with existing data and padding (0xFF)
+        for i in 0..8 {
+            if i < bytes_to_write {
                 unsafe {
-                    *dst = *src; // 4-byte write (For lower part of doubleword)
-                };
-
-                src = ((src as u32) + 4) as *mut u32; // increment pointer by 4
-                dst = ((dst as u32) + 4) as *mut u32; // increment pointer by 4
-                
-                unsafe {
-                    *dst = *src; // 4-byte write (For higher part of doubleword)
-                };
-
-                src = ((src as u32) + 4) as *mut u32; // increment pointer by 4
-                dst = ((dst as u32) + 4) as *mut u32; // increment pointer by 4
-                
-                // Flash write command
-                self.nvm.fcmd.write(|s| unsafe {
-                    s.key().bits(0xA5)
-                    .pagen().bits(pg_num.try_into().unwrap())
-                    .cmd().bits(0x01)
-                });
-                while !self.nvm.fsr.read().frdy().bit() {}
-                
-                // increment index value
-                idx += 8;
-
-                if (idx%512)==0 {
-                    pg_num+=1;
+                    *dst = *src;
+                    src = src.add(1);
                 }
             } else {
-                defmt::println!("I'm executing the else block");
-                
-                // let mut temp_doubleword: [u8; 8] = [0xFF; 8];
-                
-                let copied_data = copy_data_from_raw_pointer(src as *mut u8, len as usize);
-                let offset = (address + idx) - (((address + idx) >> 3) << 3); // reminder of 8-byte alignment operation on sum of address and idx
-                let data_ptr = copied_data.as_ptr();
-                defmt::println!("copied data has {}", copied_data);
-                
-                // clearing page buffer
-                self.nvm.fcmd.write(|s| unsafe {
-                    s.key().bits(0xA5)
-                // pagen field is not used
-                        .cmd().bits(0x03)
-                });
-
-                while !self.nvm.fsr.read().frdy().bit() {}
-
-                // Write to Page Buffer by directly writing to flash memory
                 unsafe {
-                    *dst = *data_ptr as u32; // 4-byte write (For lower part of doubleword)
-                };
-
-                
-                // data_ptr = ((data_ptr as *const u8) + 4) as *mut u32; // increment pointer by 4
-                dst = ((dst as u32) + 4) as *mut u32; // increment pointer by 4
-                let data_ptr = copied_data[4..8].as_ptr();
-
-                unsafe {
-                    *dst = *data_ptr  as u32; // 4-byte write (For higher part of doubleword)
-                };
-                
-                // Flash write command
-                self.nvm.fcmd.write(|s| unsafe {
-                    s.key().bits(0xA5)
-                    .pagen().bits(pg_num.try_into().unwrap())
-                    .cmd().bits(0x01)
-                });
-
-                while !self.nvm.fsr.read().frdy().bit() {}
-                idx += 1;
-
+                    *dst = 0xFF;
+                }
             }
-            
+            unsafe{
+            dst = dst.add(1);
+            }
+            idx += 1;
+
+            // Break when all bytes are written
+            if idx == len {
+                break;
+            }
+        }
+
+        // Flash write command
+        self.nvm.fcmd.write(|s| unsafe {
+            s.key()
+                .bits(0xA5)
+                .pagen()
+                .bits(pg_num.try_into().unwrap())
+                .cmd()
+                .bits(0x01)
+        });
+        while !self.nvm.fsr.read().frdy().bit() {}
+
+        // Update the page number if a new page is reached
+        if (idx % 512) == 0 {
+            pg_num += 1;
+        }
     }
- }
+}
+
+
+    // ... (other methods)
+
     //     //Unlock the FLASH
     //     self.hal_flash_unlock();
     //     while idx < len {
@@ -395,9 +481,12 @@ impl FlashWriterEraser {
         for addr in starting_page..ending_page {
             // defmt::println!("addr value in for loop: {}", addr);
             self.nvm.fcmd.write(|s| unsafe {
-                s.key().bits(0xA5)
-                 .pagen().bits(addr.try_into().unwrap())
-                 .cmd().bits(0x02)
+                s.key()
+                    .bits(0xA5)
+                    .pagen()
+                    .bits(addr.try_into().unwrap())
+                    .cmd()
+                    .bits(0x02)
             });
 
             loop {
